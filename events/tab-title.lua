@@ -8,12 +8,16 @@ local Cells = require('utils.cells')
 local nf = wezterm.nerdfonts
 local attr = Cells.attr
 
-local GLYPH_SCIRCLE_LEFT = nf.ple_left_half_circle_thick --[[  ]]
-local GLYPH_SCIRCLE_RIGHT = nf.ple_right_half_circle_thick --[[  ]]
-local GLYPH_CIRCLE = nf.fa_circle --[[  ]]
+-- local GLYPH_SCIRCLE_LEFT = nf.ple_left_half_circle_thick --[[  ]]
+-- local GLYPH_SCIRCLE_RIGHT = nf.ple_right_half_circle_thick --[[  ]]
+-- local GLYPH_CIRCLE = nf.fa_circle --[[  ]]
 local GLYPH_ADMIN = nf.md_shield_half_full --[[ 󰞀 ]]
 local GLYPH_UBUNTU = nf.cod_terminal_linux --[[  ]]
 local GLYPH_DEBUG = nf.fa_bug --[[  ]]
+
+local GLYPH_SCIRCLE_LEFT = ""
+local GLYPH_SCIRCLE_RIGHT = ""
+local GLYPH_CIRCLE = ""
 
 local TITLE_INSET = {
    DEFAULT = 6,
@@ -57,31 +61,45 @@ local function clean_process_name(proc)
    return a:gsub('%.exe$', '')
 end
 
+---@param f string
+local function clean_file_name(f)
+    if f == nil then
+        return ""
+    end
+   local str = tostring(f)
+   local a = string.gsub(str, '(.*[/\\])(.*)', '%2')
+   return a
+end
+
 ---@param process_name string
 ---@param base_title string
 ---@param max_width number
 ---@param inset number
-local function create_title(process_name, base_title, max_width, inset)
+local function create_title(process_name, base_title, working_dir, max_width, inset)
    local title
 
-   if process_name:len() > 0 then
-      title = process_name .. ' ~ ' .. base_title
+   if (process_name:len() > 0 and process_name ~= base_title) then
+      title = process_name .. ' ' .. base_title
    else
       title = base_title
    end
 
+    if working_dir:len() > 0 and (string.sub(process_name, process_name:len() - 2) == 'vim') then
+        title = title .. ' ' .. working_dir
+    end
+   --
    if base_title == 'Debug' then
       title = GLYPH_DEBUG .. ' DEBUG'
-      inset = inset - 2
+      -- inset = inset - 2
    end
 
-   if title:len() > max_width - inset then
-      local diff = title:len() - max_width + inset
-      title = title:sub(1, title:len() - diff)
-   else
-      local padding = max_width - title:len() - inset
-      title = title .. string.rep(' ', padding)
-   end
+   -- if title:len() > max_width - inset then
+   --    local diff = title:len() - max_width + inset
+   --    title = title:sub(1, title:len() - diff)
+   -- else
+   --    local padding = max_width - title:len() - inset
+   --    title = title .. string.rep(' ', padding)
+   -- end
 
    return title
 end
@@ -110,7 +128,8 @@ function Tab:new()
 end
 
 ---@param pane any WezTerm https://wezfurlong.org/wezterm/config/lua/pane/index.html
-function Tab:set_info(pane, max_width)
+function Tab:set_info(pane, max_width, tab_index)
+    local wd = clean_file_name(pane.current_working_dir)
    local process_name = clean_process_name(pane.foreground_process_name)
    self.is_wsl = process_name:match('^wsl') ~= nil
    self.is_admin = (pane.title:match('^Administrator: ') or pane.title:match('(Admin)')) ~= nil
@@ -123,7 +142,11 @@ function Tab:set_info(pane, max_width)
    if self.unseen_output then
       inset = inset + 2
    end
-   self.title = create_title(process_name, pane.title, max_width, inset)
+
+    print(pane.title)
+   self.title = create_title(process_name, pane.title, wd, max_width, inset)
+    -- self.title = self.title .. "~~"
+   self.title = tostring(tab_index + 1) .. ":" .. self.title -- set tab index 
 end
 
 ---@param is_active boolean
@@ -162,7 +185,8 @@ function Tab:update_cells(is_active, hover)
       color_variant = 'hover'
    end
 
-   self.cells:update_segment_text('title', ' ' .. self.title)
+   self.cells:update_segment_text('title',  self.title)
+   -- self.cells:update_segment_text('title', ' -- ' .. self.title)
    self.cells
       :update_segment_colors('scircle_left', SEGMENT_COLORS['scircle'][color_variant])
       :update_segment_colors('admin', SEGMENT_COLORS['text'][color_variant])
@@ -216,6 +240,7 @@ M.setup = function()
    -- CUSTOM EVENT
    -- Event listener to unlock manually set tab name
    wezterm.on('reset-tab-title', function(window, _pane)
+        print(_pane)
       local tab = window:active_tab()
       local id = tab:tab_id()
       tab_list[id].title_locked = false
@@ -225,13 +250,13 @@ M.setup = function()
    wezterm.on('format-tab-title', function(tab, _tabs, _panes, _config, hover, max_width)
       if not tab_list[tab.tab_id] then
          tab_list[tab.tab_id] = Tab:new()
-         tab_list[tab.tab_id]:set_info(tab.active_pane, max_width)
-         tab_list[tab.tab_id]:set_cells(tab.is_active, hover)
+         tab_list[tab.tab_id]:set_info(tab.active_pane, max_width, tab.tab_index)
+         tab_list[tab.tab_id]:set_cells(tab.is_active, hover)  -- set cells
          return tab_list[tab.tab_id]:render()
       end
 
-      tab_list[tab.tab_id]:set_info(tab.active_pane, max_width)
-      tab_list[tab.tab_id]:update_cells(tab.is_active, hover)
+      tab_list[tab.tab_id]:set_info(tab.active_pane, max_width, tab.tab_index)
+      tab_list[tab.tab_id]:update_cells(tab.is_active, hover)  -- update cells
       return tab_list[tab.tab_id]:render()
    end)
 end

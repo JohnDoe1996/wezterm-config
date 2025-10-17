@@ -70,11 +70,11 @@ function BackDrops:_set_opt(window)
          },
          {
             source = { Color = colors.background },
-            height = '120%',
-            width = '120%',
-            vertical_offset = '-10%',
-            horizontal_offset = '-10%',
-            opacity = 0.96,
+            height = '100%',
+            width = '100%',
+            -- vertical_offset = '-10%',
+            -- horizontal_offset = '-10%',
+            opacity = 0.80,
          },
       },
    }

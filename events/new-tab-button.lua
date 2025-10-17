@@ -6,10 +6,13 @@ local M = {}
 M.setup = function()
    wezterm.on('new-tab-button-click', function(window, pane, button, default_action)
       wezterm.log_info('new-tab', window, pane, button, default_action)
+      
+      --左点击新增标签
       if default_action and button == 'Left' then
          window:perform_action(default_action, pane)
       end
 
+      --右点击选择shell新增标签
       if default_action and button == 'Right' then
          window:perform_action(
             wezterm.action.ShowLauncherArgs({
@@ -19,6 +22,7 @@ M.setup = function()
             pane
          )
       end
+      
       return false
    end)
 end
